@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Telegram Video Chamada</title>
+
+  <!-- Poppins -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- ===== Facebook Pixel (base code ) ===== -->
+  <script>
+  !function(f,b,e,v,n,t,s){
+    if (f.fbq) return;
+    n = f.fbq = function(){ n.callMethod ?
+      n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+    if (!f._fbq) f._fbq = n;
+    n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = [];
+    t = b.createElement(e); t.async = !0; t.src = v;
+    s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+  }(window,document,'script','https://connect.facebook.net/en_US/fbevents.js' );
+  fbq('init','1464471040926091');
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+         src="https://www.facebook.com/tr?id=1464471040926091&ev=Purchase&noscript=1"/>
+  </noscript>
+  <!-- /Pixel -->
+
+  <style>
+    :root{--btn-size:60px;--btn-gap:50px;--pink:#ff66c4}
+
+    /* ===== BASE ===== */
+    html,body{margin:0;height:100%;font-family:'Poppins',sans-serif}
+    video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+
+    /* ===== Ripple ===== */
+    .wave{position:absolute;inset:0;border:3px solid rgba(255,255,255,.45 );
+      border-radius:50%;pointer-events:none;animation:ripple 3.5s infinite}
+    .wave:nth-child(2){animation-delay:.9s}
+    .wave:nth-child(3){animation-delay:1.8s}
+    @keyframes ripple{
+      0%{transform:scale(1);opacity:.8}
+      40%{transform:scale(1.6);opacity:.4}
+      70%{transform:scale(2.2);opacity:.18}
+      100%{transform:scale(2.8);opacity:0}
+    }
+
+    /* ===== Tela “Chamando…” ===== */
+    #preCall{position:fixed;inset:0;background:linear-gradient(135deg,#ff9ae7 0%,var(--pink) 100%);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:2;
+      pointer-events:none;animation:fadeOut .6s ease forwards;animation-play-state:paused}
+    @keyframes fadeOut{to{opacity:0;visibility:hidden}}
+    .avatar-wrapper{position:relative;width:150px;height:150px}
+    .avatar{width:100%;height:100%;border-radius:50%;object-fit:cover}
+    .name{margin:0;font-size:18px;font-weight:600;color:#fff}
+    .status{margin:0;font-size:14px;color:#f7f7f7}
+
+    /* ===== Header ===== */
+    .header{position:fixed;top:8px;left:50%;transform:translateX(-50%);
+      display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff;text-align:center;
+      z-index:3;transition:opacity .4s}
+    .hidden{opacity:0;visibility:hidden}
+    .brand{margin:0;font-size:13px;font-weight:500}
+    .call-info{display:flex;align-items:center;gap:6px;font-size:13px}
+    .call-info svg{width:18px;fill:#fff}
+
+    /* ===== Controles ===== */
+    .controls{position:fixed;bottom:20px;left:50%;transform:translate(-50%,0);
+      display:flex;gap:var(--btn-gap);z-index:4;transition:transform .5s,opacity .5s}
+    .controls.out{transform:translate(-50%,120%);opacity:0}
+    .controls.disabled{pointer-events:none}
+    .control{display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;font-size:12px}
+    .control-btn{width:var(--btn-size);height:var(--btn-size);border-radius:50%;
+      background:rgba(255,255,255,.15);backdrop-filter:blur(10px);
+      display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .control-btn svg{width:48%;height:48%}
+    .call-btn{background:#e63946}
+
+    /* ===== Prompt áudio ===== */
+    .audio-prompt{position:fixed;bottom:20px;left:50%;transform:translate(-50%,120%);opacity:0;
+      display:flex;flex-direction:column;align-items:center;gap:6px;
+      width:calc(var(--btn-size)*3 + var(--btn-gap)*2);padding:15px 25px;border-radius:12px;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(10px);color:#fff;text-align:center;z-index:4;
+      transition:transform .5s,opacity .5s}
+    .audio-prompt.in{transform:translate(-50%,0);opacity:1}
+    .audio-prompt.out{transform:translate(-50%,120%);opacity:0}
+    .audio-prompt button{width:100%;padding:12px 0;border:none;border-radius:15px;background:#fff;
+      color:var(--pink);font-size:14px;font-weight:700;cursor:pointer}
+
+    /* ===== Banner info ===== */
+    @keyframes bannerSlide{
+      0%{transform:translate(-50%,120%);opacity:0}
+      14%,86%{transform:translate(-50%,0);opacity:1}
+      100%{transform:translate(-50%,120%);opacity:0}
+    }
+    .audio-banner{position:fixed;bottom:calc(20px + var(--btn-size) + 35px);left:50%;
+      display:flex;align-items:center;gap:10px;
+      width:calc(var(--btn-size)*3 + var(--btn-gap)*2);padding:8px 16px;border-radius:10px;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(10px);color:#fff;font-size:12px;
+      transform:translate(-50%,120%);animation:bannerSlide 7s ease forwards;z-index:3}
+    .audio-banner svg{width:18px}
+
+    /* ===== Tela “Chamada Encerrada” ===== */
+    #saraOfflinePopup{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;
+      background:var(--pink);z-index:9999;padding:0 20px}
+    #saraOfflinePopup .avatar-wrapper{width:140px;height:140px;margin-top:auto;margin-bottom:8px}
+    #saraOfflinePopup .name{font-size:20px}
+    #saraOfflinePopup .ended{font-size:15px;opacity:.9;margin-top:-4px}
+    .end-wrapper{position:relative;width:var(--btn-size);height:var(--btn-size);
+      margin-top:auto;margin-bottom:40px}
+    .end-call-btn{position:relative;z-index:1;width:100%;height:100%;border:none;border-radius:50%;
+      background:#e63946;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .end-call-btn svg{width:48%;height:48%;fill:#fff}
+  </style>
+</head>
+
+<body>
+  <!-- Tela chamando -->
+  <div id="preCall">
+    <div class="avatar-wrapper">
+      <img src="image/foto-perfil.jpg" class="avatar" alt="Avatar"/>
+      <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+    </div>
+    <p class="name">Sara Melo</p>
+    <p class="status">Chamando…</p>
+  </div>
+
+  <!-- Header -->
+  <div class="header hidden" id="header">
+    <h1 class="brand">Telegram Video Chamada</h1>
+    <h2 class="name">Sara Melo</h2>
+    <div class="call-info">
+      <svg viewBox="0 0 359.07 222.85"><rect x="287.24" width="71.83" height="222.85" rx="9.01"/><rect x="191.45" y="30.21" width="71.83" height="192.63" rx="9.01"/><rect x="95.67" y="78.21" width="71.83" height="144.63" rx="9.01"/><rect width="71.83" height="96.02" y="126.83" rx="9.01"/></svg>
+      <span id="callTime">00:00</span>
+    </div>
+  </div>
+
+  <!-- Vídeo -->
+  <video id="mainVideo" muted playsinline></video>
+
+  <!-- Controles -->
+  <div class="controls disabled" id="controls" style="display:none;">
+    <div class="control"><div class="control-btn" id="audioBtn"></div><span>Áudio</span></div>
+    <div class="control"><div class="control-btn" id="micBtn"></div><span>Microfone</span></div>
+    <div class="control">
+      <div class="control-btn call-btn" id="hangBtn">
+        <svg viewBox="0 0 67.63 27.28" fill="currentColor"><path d="M63.2,27.28c-.4.03-1.52-.31-1.99-.43-2.52-.61-4.99-1.51-7.5-2.17-3.75-.98-5.41-.1-5.2-5.01.06-1.53,1-5.76.07-6.89-.45-.55-1.79-.91-2.49-1.13-6.61-2.09-13.79-2.42-20.56-1-1.29.27-5.92,1.3-6.55,2.24-.88,1.32.29,6.34.15,8.23-.02.32-.09,1.22-.19,1.45-.74,1.74-3.5,1.71-5.14,2.14-2.63.69-5.36,1.72-7.98,2.32-1.59.36-1.98 .35-3.11-.95C1.07,24.21-.18,21.7.02,19.19.79,9.36,8.45,5.58,16.7,2.54c9.73-3.58,26.08-3.36,35.68.57,3.66,1.5,8.89,3.8,11.49,6.77,2.32,2.65,4.78,9.03,3.33,12.46-.55,1.31-2.54,4.82-3.99,4.94Z"/></svg>
+      </div><span>Encerrar</span>
+    </div>
+  </div>
+
+  <!-- Prompt áudio -->
+  <div class="audio-prompt" id="audioPrompt">
+    <p style="margin-top:3px;">Deseja ativar o <br>áudio da video chamada?</p>
+    <button id="audioYes">Sim, desejo</button>
+  </div>
+
+  <!-- Tela encerrada -->
+  <div id="saraOfflinePopup">
+    <div class="avatar-wrapper"><img src="image/foto-perfil.jpg" class="avatar" alt="Avatar"/></div>
+    <p class="name">Sara Melo</p>
+    <p class="status ended">Chamada Encerrada</p>
+    <div class="end-wrapper">
+      <button id="closeBtn" class="end-call-btn" aria-label="Fechar">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+      <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+    </div>
+  </div>
+
+  <!-- Telegram helper -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- ========== JS PRINCIPAL ========== -->
+  <script>
+    const vLog=(...m )=>console.log(...m);
+
+    /* Elementos */
+    const video=document.getElementById('mainVideo'),
+          preCall=document.getElementById('preCall'),
+          headerEl=document.getElementById('header'),
+          controls=document.getElementById('controls'),
+          promptBox=document.getElementById('audioPrompt'),
+          yesBtn=document.getElementById('audioYes'),
+          audioB=document.getElementById('audioBtn'),
+          micB=document.getElementById('micBtn'),
+          callT=document.getElementById('callTime'),
+          offlineUI=document.getElementById('saraOfflinePopup'),
+          closeBtn=document.getElementById('closeBtn'),
+          hangBtn=document.getElementById('hangBtn');
+
+    /* SVGs (compactos) */
+    const svgOffAudio=`<svg viewBox="0 0 36.31 25.82" fill="currentColor"><path d="M0,16.95v-8.16c1.04-3.4,5.17-4.14,7.22-1.17L13.99.99c2.36-2.04,6.04-.75,6.56,2.33-.35,6.12.46,12.75,0,18.81-.23,3-3.68,4.74-6.2,2.98l-7.14-6.99c-1.95,3.04-6.25,2.26-7.22-1.17Z"/><path d="M25.63,6.7c1.88-.32,3.05,2.13,4.41,3 .3,0,2.27-2.41,3.02-2.73.93-.39,2.13-.28,2.77.56 1.69,2.2-1.44,3.86-2.61,5.35-.04.21,2.44,2.4,2.75,2.97.87,1.63-.4,3.48-2.2,3.31-1.27-.12-2.72-2.35-3.73-3.12-.22,0-2.47,2.72-3.2,3.04-1.11.48-2.26-.04-2.74-1.13-1-2.27,1.58-3.5,2.76-5,.04-.2-2.49-2.45-2.8-3.02-.69-1.31.1-2.98,1.57-3.23Z"/></svg>`;
+    const svgOnAudio=`<svg viewBox="0 0 382.65 304.51" fill="currentColor"><path d="M0,193.9v-83.67c10.66-34.84,52.95-42.39,73.96-11.98L143.42,30.27c24.14-20.95,61.93-7.66,67.26,23.92-3.58,62.74,4.75,130.7,0.06,192.81-2.32,30.8-37.76,48.62-63.56,30.56l-73.22-71.69c-20.03,31.21-64.1,23.13-73.96-11.98Z"/><path d="M313.4.02c14.05-.76,25.38,17.61,32.36,28.16,47.31,71.41,49.23,165.93,5.07,239.39-9.2,15.31-32.36,53.67-52.05,28.71-12.57-15.94,3.09-26.57,10.83-38.56,38.65-59.9,45.19-131.15,10.38-194.83-5.36-9.81-24.27-32.55-25.36-40.49-1.52-11.02,7.78-21.8,18.76-22.39Z"/><path d="M284.86,71.9c11.17,11.83,21.7,51.15,22.92,67.48,1.9,25.52-4.53,66.7-19.65,87.89-10.69,14.98-35.22,10.41-37.04-8.9-.84-8.96,11.87-30.32,14.43-42.1,3.69-16.97,2.86-40.05-2.09-56.78-2.88-9.72-14.42-26.84-13.84-35.23,1.18-17.07,22.84-25.53,35.28-12.36Z"/></svg>`;
+    const micOff=`<svg viewBox="0 0 30.19 36.24" fill="currentColor"><g><path d="M20.39,5.95v12c0,3.28-2.67,5.95-5.95,5.95s-5.94-2.67-5.94-5.95V5.95c0-3.28,2.66-5.95,5.94-5.95,1.6,0,3.09.62,4.21,1.75,1.12,1.11,1.74,2.6,1.74,4.2Z"/><path d="M27.44,19.07c-.46,3.62-3.36,10.62-11.04,11.68v5.49h-3.99v-5.49c-7.69-1.06-10.59-8.06-11.05-11.68-.14-1.08.63-2.09,1.73-2.24,1.1-.12,2.1.66,2.24,1.74.04.33,1.23,8.25,9.02,8.32h.1c7.66-.07,8.91-7.48,9.02-8.33.07-.53.34-1,.77-1.33.43-.32.95-.46,1.48-.39.52.07.99.34,1.32.76.33.42.47.95.4,1.47Z"/></g><path d="M2,35.74c-.47,0-.94-.17-1.32-.5-.83-.73-.91-2-.17-2.82L26.69,2.77c.73-.83,2-.91,2.82-.17s.91,2,.17,2.82L3.5,35.07c-.4.45-.95.68-1.5.68Z"/></svg>`;
+    const micOn=`<svg viewBox="0 0 26.11 36.24" fill="currentColor"><path d="M19.05,5.95v12c0,3.28-2.67,5.95-5.95,5.95s-5.94-2.67-5.94-5.95V5.95c0-3.28,2.66-5.95,5.94-5.95,1.6,0,3.09.62,4.21,1.75,1.12,1.11,1.74,2.6,1.74,4.2Z"/><path d="M26.1,19.07c-.46,3.62-3.36,10.62-11.04,11.68v5.49h-3.99v-5.49C3.38,29.69.48,22.69.02,19.07c-.14-1.08.63-2.09,1.73-2.24,1.1-.12,2.1.66,2.24,1.74.04.33,1.23,8.25,9.02,8.32h.1c7.66-.07,8.91-7.48,9.02-8.33.07-.53.34-1,.77-1.33.43-.32.95-.46,1.48-.39.52.07.99.34,1.32.76.33.42.47.95.4,1.47Z"/></svg>`;
+
+    /* Banner helper */
+    let banner=null,bTO;
+    function showBanner(icon,text){
+      if(banner){clearTimeout(bTO);banner.remove();}
+      const d=document.createElement('div');
+      d.className='audio-banner';
+      d.innerHTML=icon+`<span>${text}</span>`;
+      document.body.appendChild(d);
+      banner=d;
+      bTO=setTimeout(()=>{d.remove();banner=null},7000);
+    }
+
+    /* Estado / util */
+    let micState=false;
+    const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+    const drawAudio=()=>audioB.innerHTML=video.muted?svgOffAudio:svgOnAudio;
+    const drawMic=()=>micB.innerHTML=micState?micOn:micOff;
+
+    /* Toggles */
+    audioB.onclick=()=>{
+      if(controls.classList.contains('disabled'))return;
+      video.muted=!video.muted;
+      if(!video.muted)video.volume=1;
+      drawAudio();
+      showBanner(video.muted?svgOffAudio:svgOnAudio,`Áudio ${video.muted?'desligado':'ligado'}.`);
+    };
+    micB.onclick=()=>{
+      if(controls.classList.contains('disabled'))return;
+      micState=!micState;drawMic();
+      showBanner(micState?micOn:micOff,`Microfone ${micState?'ligado':'desligado'}.`);
+    };
+
+    /* Timer */
+    video.addEventListener('play',()=>requestAnimationFrame(function tick(){
+      callT.textContent=fmt(video.currentTime);
+      if(!video.paused)requestAnimationFrame(tick);
+    }));
+
+    /* Funções de controle */
+    function endCall(){
+      controls.classList.add('disabled');
+      offlineUI.style.display='flex';
+      video.pause();
+    }
+    hangBtn.onclick=endCall;
+    video.addEventListener('ended',endCall);
+
+    /* Vídeo inicial */
+    video.src="https://pub-982685a745a94244802ff9b4f763468b.r2.dev/VIDEOCHAMADA1.mp4";
+    drawAudio( );drawMic();
+
+    /* Sequência inicial (só inicia depois da verificação Supabase) */
+    function startSequence(){
+      controls.style.display='flex';
+      setTimeout(()=>{
+        controls.classList.add('out');
+        promptBox.classList.add('in');
+      },2000);
+    }
+
+    yesBtn.onclick=()=>{
+      promptBox.classList.replace('in','out');
+      controls.classList.remove('out','disabled');
+      video.muted=false;video.volume=1;drawAudio();
+      setTimeout(()=>{
+        preCall.style.animationPlayState='running';
+        headerEl.classList.remove('hidden');
+        video.play().then(()=>showBanner(svgOnAudio,'Áudio ligado.'));
+      },3000);
+    };
+
+    closeBtn.onclick=()=>{try{window.close()}catch{location.href='about:blank'}};
+
+    /* ---------- UTM + SUPABASE + Pixel ---------- */
+    const qs=new URLSearchParams(location.search);
+    const tgAPI=window.Telegram?.WebApp;
+    let utm=qs.get('utm');
+    if(!utm&&tgAPI?.initDataUnsafe?.start_param){
+      utm=new URLSearchParams(tgAPI.initDataUnsafe.start_param).get('utm');
+    }
+
+    const supabaseUrl='https://supa.onfireempreender.uk/rest/v1/LEADS_TELEGRAM_PESSOAL';
+    const supabaseKey='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQ5NTk2NDAwLCJleHAiOjE5MDczNjI4MDB9.vrFvCnGx4izqJ-tBaeMQG7JDeyg6Onyr_11UsUDWtQk';
+    const headers={apikey:supabaseKey,Authorization:`Bearer ${supabaseKey}`,'Content-Type':'application/json',Prefer:'return=minimal'};
+
+    const fetchLead=async( )=>{
+      if(!utm)return null;
+      const r=await fetch(`${supabaseUrl}?UTM=eq.${encodeURIComponent(utm)}&select=*`,{headers});
+      return (await r.json())[0]||null;
+    };
+
+    const markSeen=()=>fetch(`${supabaseUrl}?UTM=eq.${encodeURIComponent(utm)}`,{
+      method:'PATCH',
+      headers,
+      body:JSON.stringify({'UPSELL-VISTO':'VISTO',UPSELL:'PAGO'})
+    })
+    .then(()=>{
+      if(typeof fbq==='function'){
+        fbq('track','Purchase');
+        console.log('fbq Purchase enviado');
+      }
+    })
+    .catch(err=>console.error('Erro no PATCH:',err));
+
+    function showOffline(){
+      offlineUI.style.display='flex';
+      video.pause();
+      controls.classList.add('disabled');
+      preCall.style.display='none';
+    }
+
+    window.addEventListener('DOMContentLoaded',async()=>{
+      try{
+        const lead=await fetchLead();
+        if(!utm||!lead||lead['UPSELL-VISTO']==='VISTO'){
+          showOffline();
+        }else{
+          setTimeout(markSeen,10000);
+          startSequence();           // só segue se estiver liberado
+        }
+      }catch{
+        showOffline();
+      }
+    });
+  </script>
+</body>
+</html>
